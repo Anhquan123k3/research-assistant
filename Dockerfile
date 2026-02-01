@@ -22,5 +22,5 @@ COPY . .
 ENV PORT=8080
 ENV PYTHONUNBUFFERED=1
 
-# Run the application with gunicorn
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 main:app
+# Run the application with uvicorn (FastAPI is ASGI, not WSGI)
+CMD exec uvicorn main:app --host 0.0.0.0 --port $PORT
