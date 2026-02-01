@@ -1,0 +1,33 @@
+{
+    "hosting": {
+        "public": "static",
+        "ignore": [
+            "firebase.json",
+            "**/.*",
+            "**/node_modules/**"
+        ],
+        "rewrites": [
+            {
+                "source": "/api/**",
+                "run": {
+                    "serviceId": "research-assistant",
+                    "region": "asia-southeast1"
+                }
+            },
+            {
+                "source": "**",
+                "run": {
+                    "serviceId": "research-assistant",
+                    "region": "asia-southeast1"
+                }
+            }
+        ]
+    },
+    "firestore": {
+        "rules": "firestore.rules",
+        "indexes": "firestore.indexes.json"
+    },
+    "storage": {
+        "rules": "storage.rules"
+    }
+}

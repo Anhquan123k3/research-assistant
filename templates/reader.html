@@ -1,0 +1,679 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<!-- PDF Toolbar -->
+<div
+    class="fixed top-0 left-0 right-0 h-14 bg-slate-900 text-white flex items-center justify-between px-4 z-50 shadow-md">
+    <div class="flex items-center gap-4">
+        <a href="/" class="text-slate-400 hover:text-white transition">
+            <i class="fa-solid fa-arrow-left"></i>
+        </a>
+        <h1 class="font-medium text-sm truncate max-w-xs">{{ document.filename }}</h1>
+    </div>
+
+    <div class="flex items-center gap-4">
+        <div class="flex items-center gap-1 bg-slate-800 rounded-lg p-1">
+            <button onclick="setMode('highlight')" id="mode-highlight"
+                class="w-9 h-9 flex items-center justify-center hover:bg-slate-700 rounded transition bg-slate-700 text-brand-400"
+                title="Highlight">
+                <i class="fa-solid fa-highlighter"></i>
+            </button>
+            <button onclick="setMode('underline')" id="mode-underline"
+                class="w-9 h-9 flex items-center justify-center hover:bg-slate-700 rounded transition"
+                title="Underline">
+                <i class="fa-solid fa-underline"></i>
+            </button>
+            <button onclick="setMode('note')" id="mode-note"
+                class="w-9 h-9 flex items-center justify-center hover:bg-slate-700 rounded transition" title="Add Note">
+                <i class="fa-solid fa-comment-dots"></i>
+            </button>
+        </div>
+
+        <div class="flex items-center gap-2 bg-slate-800 rounded-lg px-2 py-1">
+            <button id="zoom-out"
+                class="w-7 h-7 flex items-center justify-center hover:bg-slate-700 rounded transition"><i
+                    class="fa-solid fa-minus text-xs"></i></button>
+            <span id="zoom-level" class="text-xs font-mono w-10 text-center">100%</span>
+            <button id="zoom-in"
+                class="w-7 h-7 flex items-center justify-center hover:bg-slate-700 rounded transition"><i
+                    class="fa-solid fa-plus text-xs"></i></button>
+        </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+        <button onclick="askAI('summarize')"
+            class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 rounded-md text-xs font-medium transition flex items-center gap-2">
+            <i class="fa-solid fa-robot"></i> AI Tóm tắt
+        </button>
+    </div>
+</div>
+
+<!-- PDF Container -->
+<div id="pdf-wrapper" class="w-full h-full pt-14 bg-slate-100 overflow-auto flex justify-center relative">
+    <!-- The canvas layers will be injected here -->
+    <div id="pdf-viewer" class="relative py-8 shadow-xl"></div>
+</div>
+
+<!-- Custom Context Menu -->
+<div id="context-menu"
+    class="hidden fixed z-[100] bg-white rounded-lg shadow-2xl border border-slate-200 w-56 py-1 overflow-hidden animate-fade-in">
+    <div
+        class="px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+        Lưu với nhãn
+    </div>
+    <div class="grid grid-cols-2 gap-1 p-2 border-b border-slate-100">
+        <button onclick="saveSelection('Tiêu đề', '#64748b')"
+            class="flex flex-col items-center gap-1 p-2 rounded hover:bg-slate-50 transition border border-transparent hover:border-slate-100">
+            <span class="w-4 h-4 rounded-full bg-slate-500 shadow-sm"></span>
+            <span class="text-[9px] font-medium text-slate-600">Tiêu đề</span>
+        </button>
+        <button onclick="saveSelection('MỤC TIÊU', '#3b82f6')"
+            class="flex flex-col items-center gap-1 p-2 rounded hover:bg-blue-50 transition border border-transparent hover:border-blue-100">
+            <span class="w-4 h-4 rounded-full bg-blue-500 shadow-sm"></span>
+            <span class="text-[9px] font-medium text-slate-600">MỤC TIÊU</span>
+        </button>
+        <button onclick="saveSelection('NGHIÊN CỨU', '#8b5cf6')"
+            class="flex flex-col items-center gap-1 p-2 rounded hover:bg-purple-50 transition border border-transparent hover:border-purple-100">
+            <span class="w-4 h-4 rounded-full bg-purple-500 shadow-sm"></span>
+            <span class="text-[9px] font-medium text-slate-600">NGHIÊN CỨU</span>
+        </button>
+        <button onclick="saveSelection('VẬT LIỆU', '#6366f1')"
+            class="flex flex-col items-center gap-1 p-2 rounded hover:bg-indigo-50 transition border border-transparent hover:border-indigo-100">
+            <span class="w-4 h-4 rounded-full bg-indigo-500 shadow-sm"></span>
+            <span class="text-[9px] font-medium text-slate-600">VẬT LIỆU</span>
+        </button>
+        <button onclick="saveSelection('PHƯƠNG PHÁP', '#10b981')"
+            class="flex flex-col items-center gap-1 p-2 rounded hover:bg-emerald-50 transition border border-transparent hover:border-emerald-100">
+            <span class="w-4 h-4 rounded-full bg-emerald-500 shadow-sm"></span>
+            <span class="text-[9px] font-medium text-slate-600">P. PHÁP</span>
+        </button>
+        <button onclick="saveSelection('KẾT QUẢ', '#f59e0b')"
+            class="flex flex-col items-center gap-1 p-2 rounded hover:bg-amber-50 transition border border-transparent hover:border-amber-100">
+            <span class="w-4 h-4 rounded-full bg-amber-500 shadow-sm"></span>
+            <span class="text-[9px] font-medium text-slate-600">KẾT QUẢ</span>
+        </button>
+        <button onclick="saveSelection('KẾT LUẬN', '#ec4899')"
+            class="flex flex-col items-center gap-1 p-2 rounded hover:bg-pink-50 transition border border-transparent hover:border-pink-100">
+            <span class="w-4 h-4 rounded-full bg-pink-500 shadow-sm"></span>
+            <span class="text-[9px] font-medium text-slate-600">KẾT LUẬN</span>
+        </button>
+        <button onclick="saveSelection('Hạn chế', '#ef4444')"
+            class="flex flex-col items-center gap-1 p-2 rounded hover:bg-red-50 transition border border-transparent hover:border-red-100">
+            <span class="w-4 h-4 rounded-full bg-red-500 shadow-sm"></span>
+            <span class="text-[9px] font-medium text-slate-600">Hạn chế</span>
+        </button>
+    </div>
+    <div
+        class="px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+        Trợ lý AI (Qianwen)
+    </div>
+    <button onclick="askAI('explain')"
+        class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
+        <i class="fa-solid fa-wand-magic-sparkles text-indigo-500"></i> Giải thích đoạn này
+    </button>
+    <button onclick="askAI('translate')"
+        class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-3">
+        <i class="fa-solid fa-language text-indigo-500"></i> Dịch văn bản
+    </button>
+</div>
+
+<!-- AI Result Sidebar -->
+<div id="ai-sidebar"
+    class="fixed top-14 right-0 bottom-0 w-80 bg-white shadow-2xl z-40 transform translate-x-full transition-transform duration-300 flex flex-col border-l border-slate-200">
+    <div class="p-4 bg-slate-900 text-white flex items-center justify-between">
+        <h2 class="text-sm font-bold flex items-center gap-2">
+            <i class="fa-solid fa-robot text-brand-400"></i> Qianwen Assistant
+        </h2>
+        <button onclick="toggleAISidebar(false)" class="text-slate-400 hover:text-white transition">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+    <div id="ai-loading" class="hidden p-10 flex flex-col items-center gap-4 text-slate-400">
+        <div class="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+        <div class="flex gap-1 mt-2">
+            <span class="text-xs font-medium">AI đang suy nghĩ</span>
+            <span class="animate-pulse">.</span>
+            <span class="animate-pulse" style="animation-delay: 0.2s">.</span>
+            <span class="animate-pulse" style="animation-delay: 0.4s">.</span>
+        </div>
+    </div>
+    <div id="ai-chat-history" class="flex-1 overflow-auto p-4 space-y-4 bg-slate-50">
+        <div id="ai-empty-state" class="text-center py-10 opacity-50">
+            <i class="fa-solid fa-comments text-3xl mb-2"></i>
+            <p class="text-xs">Bắt đầu đối thoại hoặc chọn trích dẫn</p>
+        </div>
+    </div>
+    <div class="p-4 border-t border-slate-200 bg-white">
+        <div class="relative">
+            <input id="ai-input" type="text" placeholder="Hỏi AI bất kỳ điều gì..."
+                class="w-full pl-4 pr-10 py-2.5 bg-slate-100 border-none rounded-full text-sm focus:ring-2 focus:ring-brand-500 transition">
+            <button onclick="sendChat()"
+                class="absolute right-2 top-1.5 w-7 h-7 bg-brand-600 text-white rounded-full flex items-center justify-center hover:bg-brand-700 transition">
+                <i class="fa-solid fa-paper-plane text-[10px]"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Notification Toast -->
+<div id="toast"
+    class="fixed bottom-4 right-4 bg-slate-800 text-white px-4 py-3 rounded-md shadow-lg transform translate-y-20 transition-transform duration-300 opacity-0 z-50">
+    <i class="fa-solid fa-check-circle text-green-400 mr-2"></i> <span id="toast-msg">Đã lưu</span>
+</div>
+
+<!-- Recollection Bubble -->
+<div id="recollection-bubble"
+    class="hidden fixed bottom-6 left-6 max-w-xs bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-brand-100 z-50 animate-bounce-in flex flex-col gap-2">
+    <div class="flex items-center gap-2 text-brand-600 font-bold text-[10px] uppercase tracking-wider">
+        <i class="fa-solid fa-lightbulb"></i> Gợi nhớ kiến thức
+    </div>
+    <div id="recollection-content" class="text-xs text-slate-600 leading-normal italic">
+        <!-- Content injected here -->
+    </div>
+    <div class="flex justify-end gap-2 mt-1">
+        <button onclick="document.getElementById('recollection-bubble').classList.add('hidden')"
+            class="text-[10px] text-slate-400 hover:text-slate-600">Bỏ qua</button>
+        <button id="recollection-action" class="text-[10px] text-brand-600 font-bold hover:underline">Xem chi
+            tiết</button>
+    </div>
+</div>
+
+<!-- Recollection Detail Modal -->
+<div id="recollection-modal"
+    class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4 animate-fade-in">
+    <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+        <div class="p-4 bg-brand-600 text-white flex items-center justify-between">
+            <h3 class="text-sm font-bold flex items-center gap-2">
+                <i class="fa-solid fa-brain"></i> Trí nhớ Cá nhân
+            </h3>
+            <button onclick="document.getElementById('recollection-modal').classList.add('hidden')"
+                class="hover:bg-white/10 p-1 rounded transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="flex-1 overflow-auto p-6 space-y-6">
+            <div class="space-y-2">
+                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nội dung hiện tại</div>
+                <div id="modal-current-text"
+                    class="text-sm text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100 italic"></div>
+            </div>
+            <div class="space-y-3">
+                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kiến thức liên quan trong
+                    quá khứ</div>
+                <div id="modal-past-list" class="space-y-3"></div>
+            </div>
+            <div id="modal-ai-synthesis" class="hidden space-y-3 pt-4 border-t border-slate-100">
+                <div class="text-[10px] font-bold text-brand-600 uppercase tracking-widest flex items-center gap-2">
+                    <i class="fa-solid fa-sparkles"></i> AI Tổng hợp mối liên hệ
+                </div>
+                <div id="synthesis-content"
+                    class="text-sm text-slate-700 leading-relaxed bg-brand-50 p-4 rounded-xl border border-brand-100 shadow-sm relative overflow-hidden">
+                    <div id="synthesis-loading"
+                        class="hidden absolute inset-0 bg-brand-50/80 flex items-center justify-center">
+                        <i class="fa-solid fa-circle-notch fa-spin text-brand-500"></i>
+                    </div>
+                    <div id="synthesis-text"></div>
+                </div>
+            </div>
+        </div>
+        <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+            <button onclick="document.getElementById('recollection-modal').classList.add('hidden')"
+                class="px-4 py-2 text-xs font-medium text-slate-500 hover:text-slate-700 transition">Đóng</button>
+            <button id="btn-synthesize"
+                class="px-4 py-2 bg-brand-600 text-white rounded-lg text-xs font-bold shadow-md hover:bg-brand-700 transition flex items-center gap-2">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> AI Kết nối kiến thức
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<!-- PDF.js CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+<script>
+    // --- Config ---
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+    const url = "{{ document.url }}";
+    const docId = "{{ document.id }}";
+
+    let pdfDoc = null;
+    let scale = 2.0; // Default 200%
+    const viewer = document.getElementById('pdf-viewer');
+    const ctxMenu = document.getElementById('context-menu');
+    let savedHighlights = [];
+
+    // --- Data Fetching ---
+    async function fetchHighlights() {
+        try {
+            const res = await fetch(`/api/get-highlights?doc_id=${docId}`);
+            savedHighlights = await res.json();
+        } catch (err) {
+            console.error("Failed to fetch highlights", err);
+        }
+    }
+
+    function getHighlightStyle(h) {
+        if (h.tag.startsWith('Note:')) {
+            return "background-color: rgba(139, 92, 246, 0.4); border-bottom: 2px dashed #8b5cf6; cursor: help;";
+        } else if (h.tag === 'Underline' || h.color === '#ef4444' || h.tag === 'Hạn chế') {
+            return "border-bottom: 3px solid red; background-color: transparent;";
+        } else {
+            const vColor = h.color.replace('0.4', '0.6').replace('0.3', '0.6') || 'rgba(255, 255, 0, 0.6)';
+            return `background-color: ${vColor};`;
+        }
+    }
+
+    // --- PDF Rendering Logic ---
+    function applySavedHighlights(pageContainer, num) {
+        const textLayer = pageContainer.querySelector('.textLayer');
+        if (!textLayer) return;
+
+        setTimeout(() => {
+            const textDivs = textLayer.querySelectorAll('span');
+            textDivs.forEach(div => {
+                const originalText = div.textContent;
+                let html = originalText;
+                let isModified = false;
+
+                savedHighlights.forEach(h => {
+                    const hContent = h.content;
+                    if (!hContent) return;
+
+                    // Case 1: Highlight is fully inside this span (Precise match)
+                    if (originalText.includes(hContent)) {
+                        isModified = true;
+                        let style = getHighlightStyle(h);
+                        const escapedContent = hContent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const regex = new RegExp(`(${escapedContent})`, 'g');
+                        html = html.replace(regex, `<span style="${style} opacity: 1; pointer-events: auto;" title="${h.tag}">$1</span>`);
+                    }
+                    // Case 2: This span is part of a larger highlight (Multi-span match)
+                    else if (hContent.includes(originalText) && originalText.length > 2) {
+                        isModified = true;
+                        let style = getHighlightStyle(h);
+                        html = `<span style="${style} opacity: 1; pointer-events: auto;" title="${h.tag}">${html}</span>`;
+                    }
+                });
+
+                if (isModified) {
+                    div.innerHTML = html;
+                    div.style.opacity = '1';
+                }
+            });
+        }, 400);
+    }
+
+    async function renderPage(num) {
+        const page = await pdfDoc.getPage(num);
+        const outputScale = window.devicePixelRatio || 1;
+        const viewport = page.getViewport({ scale: scale * outputScale });
+
+        const pageDiv = document.createElement('div');
+        pageDiv.className = 'relative mb-8 bg-white shadow-xl overflow-hidden shrink-0';
+        pageDiv.style.width = Math.floor(viewport.width / outputScale) + 'px';
+        pageDiv.style.height = Math.floor(viewport.height / outputScale) + 'px';
+
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        canvas.style.width = "100%";
+        canvas.style.height = "100%";
+
+        const textLayerDiv = document.createElement('div');
+        textLayerDiv.className = 'textLayer absolute inset-0';
+        textLayerDiv.style.setProperty('--scale-factor', scale);
+
+        pageDiv.appendChild(canvas);
+        pageDiv.appendChild(textLayerDiv);
+        viewer.appendChild(pageDiv);
+
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+        const textContent = await page.getTextContent();
+        await pdfjsLib.renderTextLayer({
+            textContentSource: textContent,
+            container: textLayerDiv,
+            viewport: page.getViewport({ scale: scale }),
+            textDivs: []
+        }).promise;
+
+        applySavedHighlights(pageDiv, num);
+    }
+
+    async function loadPDF() {
+        viewer.innerHTML = '<div class="p-10 text-slate-400">Đang khởi tạo...</div>';
+        try {
+            await fetchHighlights();
+            pdfDoc = await pdfjsLib.getDocument(url).promise;
+            viewer.innerHTML = '';
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                await renderPage(i);
+            }
+        } catch (error) {
+            console.error(error);
+            viewer.innerHTML = `<div class="text-red-500 p-10">Lỗi: ${error.message}</div>`;
+        }
+    }
+
+    loadPDF();
+
+    // --- Toolbar Tools ---
+    let currentMode = 'highlight';
+    async function setMode(mode) {
+        currentMode = mode;
+        document.querySelectorAll('[id^="mode-"]').forEach(btn => btn.classList.remove('bg-slate-700', 'text-brand-400'));
+        if (document.getElementById(`mode-${mode}`)) {
+            document.getElementById(`mode-${mode}`).classList.add('bg-slate-700', 'text-brand-400');
+        }
+
+        const selection = window.getSelection().toString().trim();
+        if (selection) {
+            currentSelection = selection;
+            await saveSelection(mode === 'highlight' ? 'Highlight' : (mode === 'underline' ? 'Underline' : 'Note'), 'yellow');
+        } else {
+            showToast(`Chế độ: ${mode}`);
+        }
+    }
+
+    // --- Interaction ---
+    document.getElementById('zoom-in').addEventListener('click', () => {
+        scale += 0.4; // 20% relative to 2.0
+        document.getElementById('zoom-level').innerText = Math.round((scale / 2.0) * 100) + '%';
+        loadPDF();
+    });
+    document.getElementById('zoom-out').addEventListener('click', () => {
+        if (scale > 0.8) {
+            scale -= 0.4;
+            document.getElementById('zoom-level').innerText = Math.round((scale / 2.0) * 100) + '%';
+            loadPDF();
+        }
+    });
+
+    // --- Context Menu & Save ---
+    let currentSelection = "";
+    document.addEventListener('contextmenu', (e) => {
+        const selection = window.getSelection();
+        const selectedText = selection.toString().trim();
+        if (selectedText.length > 0) {
+            e.preventDefault();
+            currentSelection = selectedText;
+            const x = Math.min(e.clientX, window.innerWidth - 230);
+            const y = Math.min(e.clientY, window.innerHeight - 320);
+            ctxMenu.style.left = `${x}px`;
+            ctxMenu.style.top = `${y}px`;
+            ctxMenu.classList.remove('hidden');
+        } else {
+            ctxMenu.classList.add('hidden');
+        }
+    });
+
+    document.addEventListener('click', (e) => { if (!ctxMenu.contains(e.target)) ctxMenu.classList.add('hidden'); });
+
+    async function saveSelection(tag, color) {
+        if (!currentSelection) return;
+        ctxMenu.classList.add('hidden');
+
+        let finalTag = tag;
+        let finalColor = color;
+
+        if (currentMode === 'underline') {
+            finalTag = 'Underline';
+            finalColor = '#ef4444';
+        } else if (currentMode === 'note') {
+            const note = prompt("Nhập ghi chú cho đoạn này:", "");
+            if (!note) return;
+            finalTag = `Note: ${note}`;
+            finalColor = '#8b5cf6';
+        }
+
+        try {
+            const res = await postJSON('/api/save-highlight', { doc_id: docId, content: currentSelection, tag: finalTag, color: finalColor });
+            if (res.status === 'success') {
+                showToast(`Đã lưu ${finalTag}`);
+                savedHighlights.push({ content: currentSelection, tag: finalTag, color: finalColor });
+                document.querySelectorAll('.relative.shrink-0').forEach(div => applySavedHighlights(div));
+            }
+        } catch (err) { console.error(err); alert('Lỗi khi lưu'); }
+    }
+
+    // --- AI Chat ---
+    const aiSidebar = document.getElementById('ai-sidebar');
+    const aiLoading = document.getElementById('ai-loading');
+    const aiChatHistory = document.getElementById('ai-chat-history');
+    const aiInput = document.getElementById('ai-input');
+    let chatHistory = [];
+
+    function toggleAISidebar(show) {
+        if (show) aiSidebar.classList.remove('translate-x-full');
+        else aiSidebar.classList.add('translate-x-full');
+    }
+
+    function addMessage(role, content) {
+        const emptyState = document.getElementById('ai-empty-state');
+        if (emptyState) emptyState.remove();
+
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} mb-4`;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex flex-col gap-1 max-w-[85%]';
+
+        const inner = document.createElement('div');
+        inner.className = `p-3 rounded-2xl text-xs shadow-sm ${role === 'user' ? 'bg-brand-600 text-white rounded-tr-none' : 'bg-white text-slate-700 rounded-tl-none border border-slate-100'}`;
+
+        if (role === 'assistant') {
+            inner.classList.add('prose', 'prose-sm');
+            inner.innerHTML = marked.parse(content);
+
+            // Add copy button for AI responses
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'mt-2 px-2 py-1 text-[10px] bg-slate-100 hover:bg-slate-200 rounded text-slate-600 transition flex items-center gap-1';
+            copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Sao chép';
+            copyBtn.onclick = () => {
+                navigator.clipboard.writeText(content);
+                copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Đã sao chép!';
+                setTimeout(() => copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Sao chép', 2000);
+            };
+            inner.appendChild(copyBtn);
+        } else {
+            inner.innerHTML = content.replace(/\n/g, '<br>');
+        }
+
+        // Add timestamp
+        const time = document.createElement('div');
+        time.className = `text-[9px] text-slate-400 ${role === 'user' ? 'text-right' : 'text-left'} px-1`;
+        time.textContent = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+        wrapper.appendChild(inner);
+        wrapper.appendChild(time);
+        msgDiv.appendChild(wrapper);
+        aiChatHistory.appendChild(msgDiv);
+        aiChatHistory.scrollTop = aiChatHistory.scrollHeight;
+    }
+
+    async function sendChat() {
+        const text = aiInput.value.trim();
+        if (!text) return;
+        aiInput.value = '';
+
+        addMessage('user', text);
+        aiLoading.classList.remove('hidden');
+
+        try {
+            const res = await postJSON('/api/ai-chat', { text: text, action: 'chat', history: chatHistory });
+            aiLoading.classList.add('hidden');
+            if (res.reply) {
+                addMessage('assistant', res.reply);
+                chatHistory.push({ role: 'user', content: text });
+                chatHistory.push({ role: 'assistant', content: res.reply });
+            }
+        } catch (err) {
+            aiLoading.classList.add('hidden');
+            addMessage('assistant', 'Lỗi: ' + err.message);
+        }
+    }
+
+    aiInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChat(); });
+
+    async function askAI(action) {
+        if (!currentSelection && action !== 'summarize') {
+            showToast("Vui lòng bôi đen đoạn văn bản trước");
+            return;
+        }
+
+        const textToProcess = currentSelection || "Tóm tắt tài liệu";
+        ctxMenu.classList.add('hidden');
+        toggleAISidebar(true);
+
+        const promptMap = {
+            'explain': `Giải thích đoạn sau: "${textToProcess}"`,
+            'translate': `Dịch đoạn sau sang tiếng Việt: "${textToProcess}"`,
+            'summarize': `Tóm tắt nội dung chính của văn bản này.`
+        };
+
+        const userMsg = promptMap[action] || textToProcess;
+        addMessage('user', userMsg);
+        aiLoading.classList.remove('hidden');
+
+        let context = null;
+        if (action === 'summarize') {
+            console.log("Extracting full text for summarization...");
+            context = await extractFullText();
+        }
+
+        try {
+            const res = await postJSON('/api/ai-chat', {
+                text: textToProcess,
+                action: action,
+                history: chatHistory,
+                context: context
+            });
+            aiLoading.classList.add('hidden');
+            if (res.reply) {
+                addMessage('assistant', res.reply);
+                chatHistory.push({ role: 'user', content: userMsg });
+                chatHistory.push({ role: 'assistant', content: res.reply });
+            }
+        } catch (err) {
+            aiLoading.classList.add('hidden');
+            addMessage('assistant', 'Lỗi: ' + err.message);
+        }
+    }
+
+    async function extractFullText() {
+        if (!pdfDoc) return null;
+        let fullText = "";
+        try {
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                const page = await pdfDoc.getPage(i);
+                const content = await page.getTextContent();
+                const pageText = content.items.map(item => item.str).join(' ');
+                fullText += `--- Trang ${i} ---\n${pageText}\n\n`;
+            }
+            return fullText;
+        } catch (err) {
+            console.error("Text extraction failed", err);
+            return null;
+        }
+    }
+
+    // --- Recollection Logic ---
+    const recollectionBubble = document.getElementById('recollection-bubble');
+    const recollectionContent = document.getElementById('recollection-content');
+    const recollectionAction = document.getElementById('recollection-action');
+    const recollectionModal = document.getElementById('recollection-modal');
+    const modalCurrentText = document.getElementById('modal-current-text');
+    const modalPastList = document.getElementById('modal-past-list');
+    const modalAISynthesis = document.getElementById('modal-ai-synthesis');
+    const synthesisText = document.getElementById('synthesis-text');
+    const synthesisLoading = document.getElementById('synthesis-loading');
+    const btnSynthesize = document.getElementById('btn-synthesize');
+
+    let lastFoundMatches = [];
+    let lastSelectionText = "";
+
+    async function checkRecollection(text) {
+        if (!text || text.length < 5) return;
+        try {
+            const res = await fetch(`/api/recollect?text=${encodeURIComponent(text)}`);
+            const matches = await res.json();
+            if (matches && matches.length > 0) {
+                lastFoundMatches = matches;
+                lastSelectionText = text;
+                renderRecollectionBubble(matches);
+            }
+        } catch (err) { console.error("Recollection failed", err); }
+    }
+
+    function renderRecollectionBubble(matches) {
+        const best = matches[0];
+        recollectionBubble.classList.remove('hidden');
+        if (best.type === 'note') {
+            recollectionContent.innerText = `Bạn đã ghi chú về vấn đề tương tự: "${best.content.substring(0, 60)}..."`;
+        } else {
+            recollectionContent.innerText = `Bạn từng thảo luận chủ đề này với AI: "${best.query.substring(0, 60)}..."`;
+        }
+
+        recollectionAction.onclick = () => {
+            recollectionBubble.classList.add('hidden');
+            openRecollectionModal(lastSelectionText, matches);
+        };
+        setTimeout(() => recollectionBubble.classList.add('hidden'), 10000);
+    }
+
+    function openRecollectionModal(current, matches) {
+        modalCurrentText.innerText = current;
+        modalPastList.innerHTML = "";
+        modalAISynthesis.classList.add('hidden');
+        recollectionModal.classList.remove('hidden');
+
+        matches.forEach(m => {
+            const div = document.createElement('div');
+            div.className = "p-3 bg-white border border-slate-100 rounded-xl shadow-sm space-y-1";
+            const typeLabel = m.type === 'note' ? `<span class="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[8px] font-bold rounded uppercase">Highlight/Note</span>` : `<span class="px-1.5 py-0.5 bg-emerald-50 text-emerald-600 text-[8px] font-bold rounded uppercase">AI Chat</span>`;
+            const content = m.type === 'note' ? m.content : `Q: ${m.query}\nA: ${m.reply}`;
+            div.innerHTML = `<div class="flex justify-between items-center">${typeLabel} <span class="text-[8px] text-slate-300">#${m.tag || 'Lịch sử'}</span></div>
+                             <div class="text-[13px] text-slate-600 leading-snug">${content.substring(0, 200)}${content.length > 200 ? '...' : ''}</div>`;
+            modalPastList.appendChild(div);
+        });
+
+        btnSynthesize.onclick = () => startKnowledgeSynthesis(current, matches);
+    }
+
+    async function startKnowledgeSynthesis(current, matches) {
+        modalAISynthesis.classList.remove('hidden');
+        synthesisLoading.classList.remove('hidden');
+        synthesisText.innerText = "Trợ lý đang suy nghĩ để kết nối các mảnh kiến thức...";
+        const pastDescription = matches.map(m => m.type === 'note' ? `- Note cũ: "${m.content}"` : `- Chat cũ: Q: "${m.query}" / A: "${m.reply}"`).join('\n');
+        try {
+            const res = await postJSON('/api/synthesize-knowledge', { current_text: current, past_knowledge: pastDescription });
+            synthesisLoading.classList.add('hidden');
+            if (res.synthesis) {
+                synthesisText.classList.add('prose');
+                synthesisText.innerHTML = marked.parse(res.synthesis);
+            }
+        } catch (err) {
+            synthesisLoading.classList.add('hidden');
+            synthesisText.innerText = "Lỗi tổng hợp: " + err.message;
+        }
+    }
+
+    document.addEventListener('mouseup', () => {
+        const selection = window.getSelection().toString().trim();
+        if (selection.length > 10) {
+            clearTimeout(recollectionTimer);
+            recollectionTimer = setTimeout(() => checkRecollection(selection), 1000);
+        }
+    });
+
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        document.getElementById('toast-msg').innerText = msg;
+        toast.classList.remove('opacity-0', 'translate-y-20');
+        setTimeout(() => toast.classList.add('opacity-0', 'translate-y-20'), 3000);
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,19 @@
+{
+  "name": "research-assistant",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "python main.py",
+    "dev:backend": "python main.py",
+    "dev:frontend": "echo 'This is a server-rendered app. Frontend is in templates/ folder. Use: npm run dev'",
+    "build": "echo 'No build needed for server-rendered app'",
+    "preview": "python main.py"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "concurrently": "^9.2.1",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}

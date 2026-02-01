@@ -1,0 +1,172 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="flex flex-col h-screen bg-white">
+    <!-- Header -->
+    <header class="h-16 border-b border-slate-200 flex items-center justify-between px-6 bg-slate-50">
+        <div class="flex items-center gap-4">
+            <a href="/" class="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition">
+                <i class="fa-solid fa-arrow-left"></i> Quay lại
+            </a>
+            <h1 class="text-xl font-bold text-slate-800 border-l border-slate-300 pl-4">Bảng So Sánh</h1>
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="window.print()" class="px-3 py-2 text-slate-600 hover:bg-slate-200 rounded transition">
+                <i class="fa-solid fa-print"></i>
+            </button>
+            <button onclick="exportToWord()"
+                class="px-4 py-2 bg-brand-600 text-white rounded shadow-sm hover:bg-brand-700 text-sm font-medium transition">
+                <i class="fa-solid fa-file-word mr-1"></i> Xuất Báo cáo Word
+            </button>
+        </div>
+    </header>
+
+    <!-- Matrix Table Container -->
+    <main class="flex-1 overflow-auto p-6">
+        <div id="loader" class="flex items-center justify-center h-full">
+            <div class="flex flex-col items-center gap-2 text-slate-400">
+                <i class="fa-solid fa-circle-notch fa-spin text-4xl text-brand-500"></i>
+                <p>Đang tổng hợp dữ liệu...</p>
+            </div>
+        </div>
+
+        <div id="matrix-content" class="hidden">
+            <table class="w-full border-collapse border border-slate-300 rounded-lg shadow-sm">
+                <thead>
+                    <tr class="bg-slate-100">
+                        <th
+                            class="border border-slate-300 p-4 w-64 text-left font-bold text-slate-700 sticky top-0 left-0 bg-slate-100 z-30">
+                            Tiêu chí / Tài liệu
+                        </th>
+                        <!-- Tags Header will be injected here -->
+                    </tr>
+                </thead>
+                <tbody id="matrix-body" class="divide-y divide-slate-200">
+                    <!-- Data Rows will be injected here -->
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    async function initMatrix() {
+        // Get IDs from URL
+        const params = new URLSearchParams(window.location.search);
+        const ids = params.get('ids');
+
+        if (!ids) {
+            alert("Không có tài liệu nào được chọn.");
+            window.location.href = "/";
+            return;
+        }
+
+        const docIdList = ids.split(',');
+
+        try {
+            // Fetch Data
+            const res = await postJSON('/api/compare', { doc_ids: docIdList });
+
+            renderTable(res);
+        } catch (err) {
+            console.error(err);
+            document.getElementById('loader').innerHTML = `<span class="text-red-500">Lỗi tải dữ liệu.</span>`;
+        }
+    }
+
+    function renderTable(data) {
+        const { documents, matrix, tags } = data;
+
+        const loader = document.getElementById('loader');
+        const content = document.getElementById('matrix-content');
+        const theadTr = document.querySelector('thead tr');
+        const tbody = document.getElementById('matrix-body');
+
+        // 1. Render Headers (Documents)
+        documents.forEach(doc => {
+            const th = document.createElement('th');
+            th.className = "border border-slate-300 p-4 text-left font-bold text-slate-700 min-w-[250px] sticky top-0 bg-slate-100 z-10";
+            th.innerHTML = `
+                <div class="line-clamp-2 text-sm" title="${doc.filename}">${doc.filename}</div>
+                <div class="text-[10px] text-slate-400 font-normal mt-1">${new Date(doc.uploaded_at).toLocaleDateString('vi-VN')}</div>
+            `;
+            theadTr.appendChild(th);
+        });
+
+        // 2. Render Rows (Tags)
+        tags.forEach(tag => {
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-slate-50 transition";
+
+            // Tag Name Cell (First column)
+            const tdTag = document.createElement('td');
+            tdTag.className = "border border-slate-300 p-4 font-bold text-slate-700 bg-slate-50 align-top sticky left-0 z-20";
+
+            // Tag color styling
+            let colorClass = "bg-slate-200";
+            if (tag === 'Tiêu đề') colorClass = "bg-slate-100 text-slate-700 border border-slate-200";
+            if (tag === 'MỤC TIÊU') colorClass = "bg-blue-100 text-blue-800";
+            if (tag === 'NGHIÊN CỨU') colorClass = "bg-purple-100 text-purple-800";
+            if (tag === 'VẬT LIỆU') colorClass = "bg-indigo-100 text-indigo-800";
+            if (tag === 'PHƯƠNG PHÁP') colorClass = "bg-emerald-100 text-emerald-800";
+            if (tag === 'KẾT QUẢ') colorClass = "bg-amber-100 text-amber-800";
+            if (tag === 'KẾT LUẬN') colorClass = "bg-pink-100 text-pink-800";
+            if (tag === 'Hạn chế') colorClass = "bg-red-100 text-red-800";
+
+            tdTag.innerHTML = `<span class="px-2 py-1 rounded text-[10px] uppercase tracking-wider ${colorClass}">${tag}</span>`;
+            tr.appendChild(tdTag);
+
+            // Data Cells (One for each document)
+            documents.forEach(doc => {
+                const td = document.createElement('td');
+                td.className = "border border-slate-300 p-4 align-top text-sm text-slate-600";
+
+                const highlights = (matrix[doc.id] && matrix[doc.id][tag]) ? matrix[doc.id][tag] : [];
+
+                if (highlights.length > 0) {
+                    const ul = document.createElement('ul');
+                    ul.className = "list-disc pl-4 space-y-2";
+                    highlights.forEach(txt => {
+                        const li = document.createElement('li');
+                        li.innerText = txt;
+                        ul.appendChild(li);
+                    });
+                    td.appendChild(ul);
+                } else {
+                    td.innerHTML = `<span class="text-slate-300 italic text-xs">Không có dữ liệu</span>`;
+                }
+
+                tr.appendChild(td);
+            });
+
+            tbody.appendChild(tr);
+        });
+
+        // Switch View
+        loader.classList.add('hidden');
+        content.classList.remove('hidden');
+    }
+
+    function exportToWord() {
+        const params = new URLSearchParams(window.location.search);
+        const ids = params.get('ids');
+        if (!ids) return;
+
+        const btn = event.currentTarget;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Đang tạo...`;
+        btn.disabled = true;
+
+        window.location.href = `/api/export-report?ids=${ids}`;
+
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }, 2000);
+    }
+
+    initMatrix();
+</script>
+{% endblock %}

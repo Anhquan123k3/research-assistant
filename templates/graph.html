@@ -1,0 +1,932 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<main class="flex-1 flex flex-col bg-slate-900 overflow-hidden relative">
+    <!-- Header -->
+    <header
+        class="h-16 border-b border-slate-800 flex items-center justify-between px-8 z-10 bg-slate-900/80 backdrop-blur-md">
+        <div class="flex items-center gap-4">
+            <a href="/" class="text-slate-400 hover:text-white transition">
+                <i class="fa-solid fa-arrow-left"></i>
+            </a>
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-circle-nodes text-brand-500"></i> Sơ đồ Tri thức
+            </h2>
+        </div>
+        <div class="flex items-center gap-3">
+            <!-- Search Bar -->
+            <div class="relative">
+                <input id="search-input" type="text" placeholder="Tìm tài liệu..."
+                    class="w-64 pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-400 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition">
+                <i class="fa-solid fa-search absolute left-3 top-3 text-slate-400 text-xs"></i>
+                <button id="clear-search" class="hidden absolute right-2 top-2 text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <!-- Filters Button -->
+            <button id="toggle-filters"
+                class="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white hover:bg-slate-700 transition flex items-center gap-2">
+                <i class="fa-solid fa-filter"></i> Filters
+            </button>
+            <!-- Metrics Button -->
+            <button id="toggle-metrics"
+                class="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white hover:bg-slate-700 transition flex items-center gap-2">
+                <i class="fa-solid fa-chart-simple"></i> Metrics
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex overflow-hidden relative">
+        <!-- Filter Sidebar (Left) -->
+        <div id="filter-sidebar"
+            class="w-64 bg-slate-800 border-r border-slate-700 p-4 overflow-y-auto transform -translate-x-full transition-transform duration-300 absolute h-full z-30">
+            <h3 class="text-sm font-bold text-white mb-4 flex items-center justify-between">
+                <span><i class="fa-solid fa-filter mr-2"></i> Filters</span>
+                <button id="close-filters" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </h3>
+
+            <!-- Similarity Mode -->
+            <div class="mb-6">
+                <label class="text-xs font-medium text-slate-400 mb-2 block flex items-center justify-between">
+                    <span>Similarity Mode</span>
+                    <span id="embedding-status" class="text-[9px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">
+                        Loading...
+                    </span>
+                </label>
+                <div class="flex items-center gap-2 bg-slate-900 rounded-lg p-2">
+                    <button id="mode-tag"
+                        class="flex-1 px-2 py-1.5 rounded text-[10px] font-medium transition bg-brand-600 text-white">
+                        Tags
+                    </button>
+                    <button id="mode-embedding"
+                        class="flex-1 px-2 py-1.5 rounded text-[10px] font-medium transition text-slate-400 hover:text-white">
+                        AI Semantic
+                    </button>
+                </div>
+            </div>
+
+            <!-- Similarity Threshold (for embedding mode) -->
+            <div id="similarity-threshold-section" class="mb-6 hidden">
+                <label class="text-xs font-medium text-slate-400 mb-2 block">Min Similarity (%)</label>
+                <input id="similarity-threshold" type="range" min="0" max="100" value="30" step="5"
+                    class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                    <span>0%</span>
+                    <span id="similarity-value">30%</span>
+                    <span>100%</span>
+                </div>
+                <p class="text-[9px] text-slate-500 mt-2">
+                    <i class="fa-solid fa-info-circle"></i> Higher = stricter connections
+                </p>
+            </div>
+
+            <!-- Tag Filter -->
+            <div class="mb-6">
+                <label class="text-xs font-medium text-slate-400 mb-2 block">Tags</label>
+                <div id="tag-checkboxes" class="space-y-2 max-h-64 overflow-y-auto">
+                    <!-- Will be populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Connection Strength Filter -->
+            <div class="mb-6">
+                <label class="text-xs font-medium text-slate-400 mb-2 block">Min Connection Strength</label>
+                <input id="strength-filter" type="range" min="1" max="10" value="1" step="1"
+                    class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                    <span>1</span>
+                    <span id="strength-value">1</span>
+                    <span>10</span>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="space-y-2">
+                <button id="generate-embeddings-btn"
+                    class="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-xs text-white transition">
+                    <i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Generate AI Embeddings
+                </button>
+                <button id="reset-filters"
+                    class="w-full px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs text-white transition">
+                    <i class="fa-solid fa-rotate-left mr-2"></i> Reset Filters
+                </button>
+                <button id="find-path-btn"
+                    class="w-full px-3 py-2 bg-brand-600 hover:bg-brand-700 rounded-lg text-xs text-white transition">
+                    <i class="fa-solid fa-route mr-2"></i> Find Path
+                </button>
+            </div>
+        </div>
+
+        <!-- Graph Container -->
+        <div id="graph-container" class="flex-1 cursor-grab active:cursor-grabbing relative">
+            <div id="loading-state" class="absolute inset-0 flex items-center justify-center bg-slate-900">
+                <div class="text-center">
+                    <i class="fa-solid fa-circle-notch fa-spin text-brand-500 text-4xl mb-4"></i>
+                    <p class="text-slate-400 text-sm">Đang tải sơ đồ tri thức...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics Sidebar (Right) -->
+        <div id="metrics-sidebar"
+            class="w-80 bg-slate-800 border-l border-slate-700 p-4 overflow-y-auto transform translate-x-full transition-transform duration-300 absolute right-0 h-full z-30">
+            <h3 class="text-sm font-bold text-white mb-4 flex items-center justify-between">
+                <span><i class="fa-solid fa-chart-simple mr-2"></i> Statistics</span>
+                <button id="close-metrics" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </h3>
+
+            <!-- Overview Stats -->
+            <div class="mb-6 space-y-3">
+                <div class="bg-slate-900 rounded-lg p-3">
+                    <div class="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Total Documents</div>
+                    <div id="stat-total-docs" class="text-2xl font-bold text-white">-</div>
+                </div>
+                <div class="bg-slate-900 rounded-lg p-3">
+                    <div class="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Total Connections</div>
+                    <div id="stat-total-links" class="text-2xl font-bold text-brand-400">-</div>
+                </div>
+                <div class="bg-slate-900 rounded-lg p-3">
+                    <div class="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Network Density</div>
+                    <div id="stat-density" class="text-2xl font-bold text-purple-400">-</div>
+                </div>
+            </div>
+
+            <!-- Top Connected Documents -->
+            <div class="mb-6">
+                <h4 class="text-xs font-bold text-slate-300 mb-3">🏆 Most Connected</h4>
+                <div id="top-connected-list" class="space-y-2">
+                    <!-- Will be populated -->
+                </div>
+            </div>
+
+            <!-- Clusters -->
+            <div class="mb-6">
+                <h4 class="text-xs font-bold text-slate-300 mb-3">📚 Clusters</h4>
+                <div id="clusters-list" class="space-y-2">
+                    <!-- Will be populated -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mini-map (Bottom Right) -->
+    <div id="minimap-container"
+        class="fixed bottom-4 right-4 w-40 h-40 bg-slate-800/90 border border-slate-700 rounded-lg overflow-hidden shadow-2xl z-20">
+        <svg id="minimap" width="160" height="160"></svg>
+    </div>
+
+    <!-- Tooltip -->
+    <div id="graph-tooltip"
+        class="absolute hidden bg-white p-3 rounded-lg shadow-xl border border-slate-100 min-w-[200px] z-40 pointer-events-none">
+        <h3 id="tooltip-title" class="font-bold text-slate-800 text-sm mb-1"></h3>
+        <div id="tooltip-tags" class="flex flex-wrap gap-1 mb-2"></div>
+        <div id="tooltip-metrics" class="text-[10px] text-slate-500 space-y-1">
+            <!-- PageRank and other metrics -->
+        </div>
+    </div>
+
+    <!-- Path Modal -->
+    <div id="path-modal"
+        class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 rounded-xl shadow-2xl w-full max-w-md">
+            <div class="p-4 border-b border-slate-700">
+                <h3 class="text-sm font-bold text-white">Find Path Between Documents</h3>
+            </div>
+            <div class="p-4 space-y-4">
+                <div>
+                    <label class="text-xs text-slate-400 mb-1 block">From Document:</label>
+                    <select id="path-source"
+                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
+                        <option value="">Select source...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 mb-1 block">To Document:</label>
+                    <select id="path-target"
+                        class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white">
+                        <option value="">Select target...</option>
+                    </select>
+                </div>
+                <div id="path-result" class="hidden bg-slate-900 rounded-lg p-3">
+                    <div class="text-[10px] text-slate-400 uppercase tracking-wider mb-2">Path Found:</div>
+                    <div id="path-display" class="text-xs text-white space-y-1">
+                        <!-- Path will be displayed here -->
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-700 flex justify-end gap-3">
+                <button id="cancel-path"
+                    class="px-4 py-2 text-xs text-slate-400 hover:text-white transition">Cancel</button>
+                <button id="find-path"
+                    class="px-4 py-2 bg-brand-600 hover:bg-brand-700 rounded-lg text-xs text-white transition">
+                    <i class="fa-solid fa-route mr-2"></i> Find Path
+                </button>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<style>
+    .node-label {
+        font-size: 10px;
+        fill: #94a3b8;
+        pointer-events: none;
+        text-anchor: middle;
+        font-weight: 500;
+    }
+
+    .node:hover circle {
+        stroke: #0ea5e9;
+        stroke-width: 3px;
+    }
+
+    .node.highlighted circle {
+        stroke: #22d3ee;
+        stroke-width: 4px;
+        filter: drop-shadow(0 0 8px #22d3ee);
+    }
+
+    .node.dimmed {
+        opacity: 0.2;
+    }
+
+    .link {
+        stroke: #334155;
+        stroke-opacity: 0.6;
+    }
+
+    .link.highlighted {
+        stroke: #22d3ee;
+        stroke-opacity: 1;
+        stroke-width: 3px;
+    }
+
+    .link.dimmed {
+        opacity: 0.1;
+    }
+
+    .prose {
+        font-size: 13px;
+    }
+
+    /* Custom scrollbar */
+    #filter-sidebar::-webkit-scrollbar,
+    #metrics-sidebar::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    #filter-sidebar::-webkit-scrollbar-track,
+    #metrics-sidebar::-webkit-scrollbar-track {
+        background: #1e293b;
+    }
+
+    #filter-sidebar::-webkit-scrollbar-thumb,
+    #metrics-sidebar::-webkit-scrollbar-thumb {
+        background: #475569;
+        border-radius: 3px;
+    }
+
+    #filter-sidebar::-webkit-scrollbar-thumb:hover,
+    #metrics-sidebar::-webkit-scrollbar-thumb:hover {
+        background: #64748b;
+    }
+</style>
+
+<script>
+    // Global state
+    let graphData = null;
+    let simulation = null;
+    let svg = null;
+    let container = null;
+    let nodeElements = null;
+    let linkElements = null;
+    let selectedNodes = [];
+    let currentFilters = {
+        tags: [],
+        strength: 1,
+        search: '',
+        useEmbeddings: false,  // Default to tag mode
+        similarityThreshold: 0.3
+    };
+
+    // --- Initialization ---
+    async function initGraph() {
+        try {
+            // Load embedding status first
+            await loadEmbeddingStatus();
+
+            const params = new URLSearchParams({
+                use_embeddings: currentFilters.useEmbeddings,
+                similarity_threshold: currentFilters.similarityThreshold
+            });
+
+            const res = await fetch(`/api/knowledge-graph?${params.toString()}`);
+            graphData = await res.json();
+
+            document.getElementById('loading-state').style.display = 'none';
+
+            // Populate filter UI
+            populateFilters();
+
+            // Load metrics
+            loadMetrics();
+
+            // Render graph
+            renderGraph(graphData);
+
+            // Render minimap
+            renderMinimap();
+        } catch (error) {
+            console.error('Failed to load graph:', error);
+            document.getElementById('loading-state').innerHTML = `
+                <div class="text-center">
+                    <i class="fa-solid fa-triangle-exclamation text-red-500 text-4xl mb-4"></i>
+                    <p class="text-slate-400">Failed to load graph: ${error.message}</p>
+                </div>
+            `;
+        }
+    }
+
+    // --- Load Embedding Status ---
+    async function loadEmbeddingStatus() {
+        try {
+            const res = await fetch('/api/embeddings/status');
+            const status = await res.json();
+
+            const badge = document.getElementById('embedding-status');
+            const coverage = status.coverage_percent || 0;
+
+            if (coverage === 0) {
+                badge.textContent = 'No Embeddings';
+                badge.className = 'text-[9px] px-2 py-0.5 rounded-full bg-red-900 text-red-200';
+            } else if (coverage < 50) {
+                badge.textContent = `${Math.round(coverage)}% Coverage`;
+                badge.className = 'text-[9px] px-2 py-0.5 rounded-full bg-yellow-900 text-yellow-200';
+            } else if (coverage < 100) {
+                badge.textContent = `${Math.round(coverage)}% Coverage`;
+                badge.className = 'text-[9px] px-2 py-0.5 rounded-full bg-blue-900 text-blue-200';
+            } else {
+                badge.textContent = '100% Coverage';
+                badge.className = 'text-[9px] px-2 py-0.5 rounded-full bg-green-900 text-green-200';
+            }
+
+            // Update generate button
+            const genBtn = document.getElementById('generate-embeddings-btn');
+            if (status.needs_embedding_count > 0) {
+                genBtn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Generate (${status.needs_embedding_count} docs)`;
+                genBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                genBtn.disabled = false;
+            } else if (coverage === 100) {
+                genBtn.innerHTML = '<i class="fa-solid fa-check mr-2"></i> All Embeddings Ready';
+                genBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                genBtn.disabled = true;
+            }
+        } catch (error) {
+            console.error('Failed to load embedding status:', error);
+        }
+    }
+
+    // --- Populate Filter UI ---
+    function populateFilters() {
+        const tagContainer = document.getElementById('tag-checkboxes');
+        const allTags = graphData.all_tags || [];
+
+        tagContainer.innerHTML = allTags.map(tag => `
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" value="${tag}" class="tag-checkbox w-3 h-3 rounded border-slate-600 text-brand-500 focus:ring-brand-500">
+                <span class="text-xs text-slate-300">${tag}</span>
+            </label>
+        `).join('');
+
+        // Add event listeners
+        document.querySelectorAll('.tag-checkbox').forEach(cb => {
+            cb.addEventListener('change', applyFilters);
+        });
+    }
+
+    // --- Load Metrics ---
+    async function loadMetrics() {
+        try {
+            const res = await fetch('/api/knowledge-graph/metrics');
+            const data = await res.json();
+
+            // Update stats
+            document.getElementById('stat-total-docs').textContent = data.total_nodes || 0;
+            document.getElementById('stat-total-links').textContent = data.total_links || 0;
+            document.getElementById('stat-density').textContent = (data.metrics?.density * 100 || 0).toFixed(1) + '%';
+
+            // Top connected
+            const topList = document.getElementById('top-connected-list');
+            const topConnected = data.metrics?.top_connected || [];
+            topList.innerHTML = topConnected.map((item, idx) => {
+                const node = graphData.nodes.find(n => n.id === item.id);
+                return `
+                    <div class="flex items-center gap-2 text-xs bg-slate-900 p-2 rounded">
+                        <span class="text-brand-400 font-bold">${idx + 1}.</span>
+                        <span class="text-slate-300 flex-1 truncate">${node?.name || item.id}</span>
+                        <span class="text-slate-500">${item.degree}</span>
+                    </div>
+                `;
+            }).join('');
+
+            // Clusters
+            const clustersList = document.getElementById('clusters-list');
+            const clusters = data.clusters || [];
+            clustersList.innerHTML = clusters.map(cluster => `
+                <div class="flex items-center gap-2 text-xs bg-slate-900 p-2 rounded">
+                    <div class="w-3 h-3 rounded-full" style="background-color: ${cluster.color}"></div>
+                    <span class="text-slate-300 flex-1 truncate">${cluster.label}</span>
+                    <span class="text-slate-500">${cluster.size}</span>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Failed to load metrics:', error);
+        }
+    }
+
+    // --- Render Graph ---
+    function renderGraph(data) {
+        const width = window.innerWidth;
+        const height = window.innerHeight - 64;
+
+        // Clear previous
+        d3.select("#graph-container svg").remove();
+
+        svg = d3.select("#graph-container")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height)
+            .call(d3.zoom()
+                .scaleExtent([0.1, 4])
+                .on("zoom", (event) => {
+                    container.attr("transform", event.transform);
+                    updateMinimap(event.transform);
+                }))
+            .append("g");
+
+        container = svg.append("g");
+
+        // Color scale for clusters
+        const colorScale = d3.scaleOrdinal()
+            .domain((data.clusters || []).map(c => c.label))
+            .range((data.clusters || []).map(c => c.color));
+
+        // Create simulation
+        simulation = d3.forceSimulation(data.nodes)
+            .force("link", d3.forceLink(data.links).id(d => d.id).distance(150))
+            .force("charge", d3.forceManyBody().strength(-300))
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("collision", d3.forceCollide().radius(20));
+
+        // Create links
+        linkElements = container.append("g")
+            .selectAll("line")
+            .data(data.links)
+            .join("line")
+            .attr("class", "link")
+            .attr("stroke-width", d => Math.sqrt(d.value) * 2);
+
+        // Create nodes
+        const nodeGroups = container.append("g")
+            .selectAll(".node")
+            .data(data.nodes)
+            .join("g")
+            .attr("class", "node")
+            .call(d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("drag", dragended))
+            .on("mouseover", showTooltip)
+            .on("mouseout", hideTooltip)
+            .on("click", (event, d) => {
+                if (event.shiftKey) {
+                    toggleNodeSelection(d);
+                } else {
+                    window.location.href = `/reader/${d.id}`;
+                }
+            });
+
+        // Get dominant cluster for each node
+        function getNodeCluster(node) {
+            if (!data.clusters) return null;
+            for (const cluster of data.clusters) {
+                if (cluster.docs.includes(node.id)) {
+                    return cluster;
+                }
+            }
+            return null;
+        }
+
+        // Node circles with dynamic sizing based on PageRank
+        nodeGroups.append("circle")
+            .attr("r", d => {
+                const pagerank = data.metrics?.pagerank?.[d.id] || 0;
+                return 6 + (pagerank * 50); // Scale pagerank to radius
+            })
+            .attr("fill", d => {
+                const cluster = getNodeCluster(d);
+                return cluster ? cluster.color : "#475569";
+            })
+            .attr("stroke", "#fff")
+            .attr("stroke-width", 1.5);
+
+        // Node labels
+        nodeGroups.append("text")
+            .attr("dy", d => {
+                const pagerank = data.metrics?.pagerank?.[d.id] || 0;
+                return 6 + (pagerank * 50) + 12;
+            })
+            .attr("class", "node-label")
+            .text(d => d.name.length > 20 ? d.name.substring(0, 17) + "..." : d.name);
+
+        nodeElements = nodeGroups;
+
+        // Simulation tick
+        simulation.on("tick", () => {
+            linkElements
+                .attr("x1", d => d.source.x)
+                .attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x)
+                .attr("y2", d => d.target.y);
+
+            nodeElements
+                .attr("transform", d => `translate(${d.x},${d.y})`);
+        });
+    }
+
+    // --- Tooltip ---
+    function showTooltip(event, d) {
+        const tooltip = d3.select("#graph-tooltip");
+        tooltip.style("display", "block")
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 10) + "px");
+
+        document.getElementById('tooltip-title').textContent = d.name;
+
+        const tagCont = document.getElementById('tooltip-tags');
+        tagCont.innerHTML = d.tags.map(t =>
+            `<span class="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px]">${t}</span>`
+        ).join('');
+
+        // Show metrics
+        const metrics = document.getElementById('tooltip-metrics');
+        const pagerank = graphData.metrics?.pagerank?.[d.id] || 0;
+        const degree = graphData.metrics?.degree?.[d.id] || 0;
+        metrics.innerHTML = `
+            <div>PageRank: ${(pagerank * 100).toFixed(1)}%</div>
+            <div>Connections: ${Math.round(degree * (graphData.nodes.length - 1))}</div>
+        `;
+    }
+
+    function hideTooltip() {
+        d3.select("#graph-tooltip").style("display", "none");
+    }
+
+    // --- Drag Handlers ---
+    function dragstarted(event) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        event.subject.fx = event.subject.x;
+        event.subject.fy = event.subject.y;
+    }
+
+    function dragged(event) {
+        event.subject.fx = event.x;
+        event.subject.fy = event.y;
+    }
+
+    function dragended(event) {
+        if (!event.active) simulation.alphaTarget(0);
+        event.subject.fx = null;
+        event.subject.fy = null;
+    }
+
+    // --- Node Selection (for path finding) ---
+    function toggleNodeSelection(node) {
+        const index = selectedNodes.findIndex(n => n.id === node.id);
+        if (index >= 0) {
+            selectedNodes.splice(index, 1);
+        } else {
+            if (selectedNodes.length >= 2) {
+                selectedNodes.shift();
+            }
+            selectedNodes.push(node);
+        }
+        highlightSelection();
+    }
+
+    function highlightSelection() {
+        nodeElements.classed("highlighted", d => selectedNodes.some(n => n.id === d.id));
+    }
+
+    // --- Filters ---
+    async function applyFilters() {
+        const checkedTags = Array.from(document.querySelectorAll('.tag-checkbox:checked')).map(cb => cb.value);
+        const strength = parseInt(document.getElementById('strength-filter').value);
+        const search = document.getElementById('search-input').value.trim();
+
+        currentFilters = { tags: checkedTags, strength, search };
+
+        // Build query
+        const params = new URLSearchParams();
+        if (checkedTags.length > 0) {
+            params.append('tags', checkedTags.join(','));
+        }
+        if (search) {
+            params.append('search', search);
+        }
+
+        // Fetch filtered data
+        const res = await fetch(`/api/knowledge-graph?${params.toString()}`);
+        const filteredData = await res.json();
+
+        // Filter by strength
+        if (strength > 1) {
+            filteredData.links = filteredData.links.filter(l => l.value >= strength);
+        }
+
+        // Update graph
+        updateGraph(filteredData);
+    }
+
+    function updateGraph(newData) {
+        // Update links
+        linkElements.data(newData.links, d => `${d.source.id || d.source}-${d.target.id || d.target}`)
+            .join(
+                enter => enter.append("line").attr("class", "link")
+                    .attr("stroke-width", d => Math.sqrt(d.value) * 2),
+                update => update,
+                exit => exit.remove()
+            );
+
+        // Update nodes
+        const nodeGroups = nodeElements.data(newData.nodes, d => d.id)
+            .join(
+                enter => {
+                    const g = enter.append("g").attr("class", "node");
+                    g.append("circle");
+                    g.append("text").attr("class", "node-label");
+                    return g;
+                },
+                update => update,
+                exit => exit.remove()
+            );
+
+        // Update simulation
+        simulation.nodes(newData.nodes);
+        simulation.force("link").links(newData.links);
+        simulation.alpha(1).restart();
+
+        linkElements = container.selectAll(".link");
+        nodeElements = container.selectAll(".node");
+    }
+
+    // --- Search ---
+    document.getElementById('search-input').addEventListener('input', debounce(async (e) => {
+        const query = e.target.value.trim();
+        if (query.length > 2) {
+            document.getElementById('clear-search').classList.remove('hidden');
+            const res = await fetch(`/api/knowledge-graph/search?query=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            highlightSearchResults(data.results);
+        } else {
+            document.getElementById('clear-search').classList.add('hidden');
+            clearHighlights();
+        }
+    }, 300));
+
+    document.getElementById('clear-search').addEventListener('click', () => {
+        document.getElementById('search-input').value = '';
+        document.getElementById('clear-search').classList.add('hidden');
+        clearHighlights();
+    });
+
+    function highlightSearchResults(results) {
+        const resultIds = new Set(results.map(r => r.id));
+        nodeElements.classed("dimmed", d => !resultIds.has(d.id));
+        nodeElements.classed("highlighted", d => resultIds.has(d.id));
+        linkElements.classed("dimmed", d => !resultIds.has(d.source.id) && !resultIds.has(d.target.id));
+    }
+
+    function clearHighlights() {
+        nodeElements.classed("dimmed", false);
+        nodeElements.classed("highlighted", false);
+        linkElements.classed("dimmed", false);
+        linkElements.classed("highlighted", false);
+    }
+
+    // --- Path Finding ---
+    document.getElementById('find-path-btn').addEventListener('click', () => {
+        // Populate dropdowns
+        const sourceSelect = document.getElementById('path-source');
+        const targetSelect = document.getElementById('path-target');
+
+        sourceSelect.innerHTML = '<option value="">Select source...</option>' +
+            graphData.nodes.map(n => `<option value="${n.id}">${n.name}</option>`).join('');
+        targetSelect.innerHTML = '<option value="">Select target...</option>' +
+            graphData.nodes.map(n => `<option value="${n.id}">${n.name}</option>`).join('');
+
+        document.getElementById('path-modal').classList.remove('hidden');
+    });
+
+    document.getElementById('cancel-path').addEventListener('click', () => {
+        document.getElementById('path-modal').classList.add('hidden');
+        document.getElementById('path-result').classList.add('hidden');
+    });
+
+    document.getElementById('find-path').addEventListener('click', async () => {
+        const source = document.getElementById('path-source').value;
+        const target = document.getElementById('path-target').value;
+
+        if (!source || !target) {
+            alert('Please select both source and target documents');
+            return;
+        }
+
+        const res = await fetch(`/api/knowledge-graph/path?source=${source}&target=${target}`);
+        const data = await res.json();
+
+        const resultDiv = document.getElementById('path-result');
+        const displayDiv = document.getElementById('path-display');
+
+        if (data.path) {
+            displayDiv.innerHTML = data.path_with_names.map((item, idx) => `
+                <div class="flex items-center gap-2">
+                    <span class="text-brand-400">${idx + 1}.</span>
+                    <span>${item.name}</span>
+                    ${idx < data.path_with_names.length - 1 ? '<i class="fa-solid fa-arrow-down ml-auto text-slate-600"></i>' : ''}
+                </div>
+            `).join('');
+            resultDiv.classList.remove('hidden');
+
+            // Highlight path in graph
+            highlightPath(data.path);
+        } else {
+            displayDiv.innerHTML = '<div class="text-slate-400">No path found between these documents</div>';
+            resultDiv.classList.remove('hidden');
+        }
+    });
+
+    function highlightPath(path) {
+        const pathSet = new Set(path);
+        nodeElements.classed("dimmed", d => !pathSet.has(d.id));
+        nodeElements.classed("highlighted", d => pathSet.has(d.id));
+
+        // Highlight links in path
+        linkElements.classed("dimmed", true);
+        linkElements.classed("highlighted", d => {
+            for (let i = 0; i < path.length - 1; i++) {
+                if ((d.source.id === path[i] && d.target.id === path[i + 1]) ||
+                    (d.target.id === path[i] && d.source.id === path[i + 1])) {
+                    return true;
+                }
+            }
+            return false;
+        });
+    }
+
+    // --- Minimap ---
+    function renderMinimap() {
+        const minimapSvg = d3.select("#minimap");
+        const scale = 0.1;
+
+        minimapSvg.selectAll("*").remove();
+
+        // Draw nodes
+        minimapSvg.selectAll("circle")
+            .data(graphData.nodes)
+            .join("circle")
+            .attr("cx", d => (d.x || 0) * scale + 80)
+            .attr("cy", d => (d.y || 0) * scale + 80)
+            .attr("r", 2)
+            .attr("fill", "#3b82f6");
+    }
+
+    function updateMinimap(transform) {
+        // Update viewport indicator
+        // TODO: Add viewport rectangle to minimap
+    }
+
+    // --- UI Toggle ---
+    document.getElementById('toggle-filters').addEventListener('click', () => {
+        const sidebar = document.getElementById('filter-sidebar');
+        sidebar.classList.toggle('-translate-x-full');
+    });
+
+    document.getElementById('close-filters').addEventListener('click', () => {
+        document.getElementById('filter-sidebar').classList.add('-translate-x-full');
+    });
+
+    document.getElementById('toggle-metrics').addEventListener('click', () => {
+        const sidebar = document.getElementById('metrics-sidebar');
+        sidebar.classList.toggle('translate-x-full');
+    });
+
+    document.getElementById('close-metrics').addEventListener('click', () => {
+        document.getElementById('metrics-sidebar').classList.add('translate-x-full');
+    });
+
+    document.getElementById('reset-filters').addEventListener('click', () => {
+        document.querySelectorAll('.tag-checkbox').forEach(cb => cb.checked = false);
+        document.getElementById('strength-filter').value = 1;
+        document.getElementById('strength-value').textContent = 1;
+        document.getElementById('search-input').value = '';
+        applyFilters();
+    });
+
+    document.getElementById('strength-filter').addEventListener('input', (e) => {
+        document.getElementById('strength-value').textContent = e.target.value;
+        applyFilters();
+    });
+
+    // --- Mode Toggle ---
+    document.getElementById('mode-tag').addEventListener('click', () => {
+        currentFilters.useEmbeddings = false;
+        document.getElementById('mode-tag').className = 'flex-1 px-2 py-1.5 rounded text-[10px] font-medium transition bg-brand-600 text-white';
+        document.getElementById('mode-embedding').className = 'flex-1 px-2 py-1.5 rounded text-[10px] font-medium transition text-slate-400 hover:text-white';
+        document.getElementById('similarity-threshold-section').classList.add('hidden');
+        applyFilters();
+    });
+
+    document.getElementById('mode-embedding').addEventListener('click', () => {
+        currentFilters.useEmbeddings = true;
+        document.getElementById('mode-embedding').className = 'flex-1 px-2 py-1.5 rounded text-[10px] font-medium transition bg-brand-600 text-white';
+        document.getElementById('mode-tag').className = 'flex-1 px-2 py-1.5 rounded text-[10px] font-medium transition text-slate-400 hover:text-white';
+        document.getElementById('similarity-threshold-section').classList.remove('hidden');
+        applyFilters();
+    });
+
+    // --- Similarity Threshold ---
+    document.getElementById('similarity-threshold').addEventListener('input', (e) => {
+        const value = parseInt(e.target.value);
+        document.getElementById('similarity-value').textContent = value + '%';
+        currentFilters.similarityThreshold = value / 100;
+        // Debounce to avoid too many requests
+        clearTimeout(window.thresholdDebounce);
+        window.thresholdDebounce = setTimeout(() => {
+            applyFilters();
+        }, 500);
+    });
+
+    // --- Generate Embeddings ---
+    document.getElementById('generate-embeddings-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('generate-embeddings-btn');
+        if (btn.disabled) return;
+
+        // Show loading state
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Generating...';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/embeddings/generate', { method: 'POST' });
+            const result = await res.json();
+
+            if (result.status === 'success') {
+                // Refresh status
+                await loadEmbeddingStatus();
+
+                // Reload graph if in embedding mode
+                if (currentFilters.useEmbeddings) {
+                    await applyFilters();
+                }
+
+                // Show success message
+                alert(`✅ Embeddings generated successfully!\n\n` +
+                    `Generated: ${result.generated}\n` +
+                    `Skipped: ${result.skipped}\n` +
+                    `Failed: ${result.failed}`);
+            } else {
+                alert('❌ Failed to generate embeddings: ' + (result.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Generate embeddings error:', error);
+            alert('❌ Failed to generate embeddings: ' + error.message);
+        } finally {
+            btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Generate AI Embeddings';
+            btn.disabled = false;
+        }
+    });
+
+    // --- Utility ---
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // --- Init ---
+    initGraph();
+</script>
+{% endblock %}

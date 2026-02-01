@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Documents collection
+    match /documents/{document} {
+      // Allow read/write for all users (temporary - add authentication later)
+      allow read, write: if true;
+      
+      // For production, use authentication:
+      // allow read, write: if request.auth != null;
+    }
+    
+    // Collections collection
+    match /collections/{collection} {
+      allow read, write: if true;
+      
+      // For production, use authentication:
+      // allow read, write: if request.auth != null;
+    }
+  }
+}

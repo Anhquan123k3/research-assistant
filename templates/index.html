@@ -1,0 +1,512 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<!-- Sidebar -->
+<aside class="w-64 bg-white border-r border-slate-200 flex flex-col z-10 shadow-sm">
+    <div class="p-6 border-b border-slate-100 flex items-center gap-2">
+        <div class="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold">RA</div>
+        <h1 class="font-bold text-lg text-slate-700">Research Assistant</h1>
+    </div>
+
+    <div class="p-4 flex-1 overflow-y-auto">
+        <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Collections</h2>
+        <ul id="collection-list" class="space-y-1">
+            <li>
+                <a href="/"
+                    class="flex items-center gap-3 px-3 py-2 bg-brand-50 text-brand-600 rounded-md font-medium text-sm">
+                    <i class="fa-solid fa-folder-open"></i> Tất cả tài liệu
+                </a>
+            </li>
+        </ul>
+        <button onclick="createCollection()"
+            class="mt-4 w-full flex items-center justify-center gap-2 border border-dashed border-slate-300 rounded-md py-2 text-xs font-medium text-slate-500 hover:border-brand-500 hover:text-brand-500 transition">
+            <i class="fa-solid fa-plus"></i> Tạo bộ sưu tập mới
+        </button>
+    </div>
+</aside>
+
+<!-- Main Area -->
+<main class="flex-1 flex flex-col relative">
+    <!-- Toolbar -->
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-sm">
+        <div class="flex items-center gap-4">
+            <h2 class="text-xl font-bold text-slate-800">Thư viện</h2>
+            <span class="px-2 py-0.5 rounded-full bg-slate-100 text-xs font-medium text-slate-500">{{ documents|length
+                }} files</span>
+        </div>
+
+        <div class="flex-1 max-w-xl mx-8 relative group">
+            <i
+                class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-500 transition"></i>
+            <input type="text" id="semantic-search-input"
+                placeholder="Tìm kiếm bằng ý nghĩa (vd: 'phương pháp mới', 'kết quả y học')..."
+                class="w-full pl-11 pr-4 py-2 bg-slate-100 border-none rounded-full text-sm focus:ring-2 focus:ring-brand-500 transition">
+            <div id="search-loading" class="hidden absolute right-4 top-1/2 -translate-y-1/2">
+                <i class="fa-solid fa-circle-notch fa-spin text-brand-500 text-xs"></i>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button onclick="compareSelected()" id="btn-compare"
+                class="hidden flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 shadow-sm transition">
+                <i class="fa-solid fa-table-columns"></i> So sánh (<span id="count-selected">0</span>)
+            </button>
+
+            <a href="/graph"
+                class="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-md text-sm font-medium hover:bg-slate-900 shadow-sm transition">
+                <i class="fa-solid fa-circle-nodes"></i> Sơ đồ Tri thức (Graph)
+            </a>
+
+            <label
+                class="cursor-pointer flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-md text-sm font-medium hover:bg-brand-700 shadow-sm transition">
+                <i class="fa-solid fa-cloud-arrow-up"></i> Upload PDF
+                <input type="file" id="file-upload" class="hidden" accept="application/pdf">
+            </label>
+        </div>
+    </header>
+
+    <!-- File List -->
+    <div class="flex-1 p-8 overflow-y-auto bg-slate-50">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr
+                        class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        <th class="p-4 w-12 text-center">
+                            <input type="checkbox" id="select-all"
+                                class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                        </th>
+                        <th class="p-4">Tên tài liệu</th>
+                        <th class="p-4 w-48">Ngày upload</th>
+                        <th class="p-4 w-24 text-center">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100" id="doc-list">
+                    {% for doc in documents %}
+                    <tr class="hover:bg-slate-50 transition group">
+                        <td class="p-4 text-center">
+                            <input type="checkbox" value="{{ doc.id }}"
+                                class="doc-checkbox rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                        </td>
+                        <td class="p-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded bg-red-50 text-red-500 flex items-center justify-center">
+                                    <i class="fa-regular fa-file-pdf"></i>
+                                </div>
+                                <a href="/reader/{{ doc.id }}"
+                                    class="font-medium text-slate-700 hover:text-brand-600 truncate max-w-md block">
+                                    {{ doc.filename }}
+                                </a>
+                            </div>
+                        </td>
+                        <td class="p-4 text-sm text-slate-500">
+                            {% if doc.uploaded_at %}
+                            {% if doc.uploaded_at is string %}
+                            {{ doc.uploaded_at[:10] }}
+                            {% else %}
+                            {{ doc.uploaded_at.strftime('%d-%m-%Y') }}
+                            {% endif %}
+                            {% else %}
+                            N/A
+                            {% endif %}
+                        </td>
+                        <td class="p-4 text-center">
+                            <button onclick="deleteDoc('{{ doc.id }}')"
+                                class="text-slate-400 hover:text-red-500 transition">
+                                <i class="fa-regular fa-trash-can"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    {% if not documents %}
+                    <tr>
+                        <td colspan="4" class="p-12 text-center text-slate-400">
+                            <div class="flex flex-col items-center gap-3">
+                                <i class="fa-regular fa-folder-open text-4xl opacity-50"></i>
+                                <p>Chưa có tài liệu nào. Hãy upload file PDF để bắt đầu.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<!-- Library AI Assistant Toggle Button -->
+<button onclick="toggleLibraryChat(true)"
+    class="fixed bottom-8 right-8 w-14 h-14 bg-brand-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-brand-700 transition-transform hover:scale-110 z-40 group">
+    <i class="fa-solid fa-wand-magic-sparkles text-xl"></i>
+    <span
+        class="absolute right-full mr-3 px-2 py-1 bg-slate-800 text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap pointer-events-none">Hỏi
+        Trợ lý Thư viện</span>
+</button>
+
+<!-- Library AI Chat Drawer -->
+<div id="library-chat-drawer"
+    class="fixed top-14 right-0 bottom-0 w-96 bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col border-l border-slate-200">
+    <div class="p-4 bg-slate-900 text-white flex items-center justify-between">
+        <h2 class="text-sm font-bold flex items-center gap-2">
+            <i class="fa-solid fa-brain text-brand-400"></i> Trợ lý Thư viện (Premium)
+        </h2>
+        <button onclick="toggleLibraryChat(false)" class="text-slate-400 hover:text-white transition">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+
+    <div id="library-chat-history" class="flex-1 overflow-auto p-4 space-y-4 bg-slate-50">
+        <div class="bg-brand-50 border border-brand-100 p-3 rounded-lg text-xs text-brand-700 mb-4">
+            <i class="fa-solid fa-circle-info mr-1"></i> Chào bạn! Tôi có thể giúp bạn tìm kiếm và tổng hợp thông tin từ
+            <strong>tất cả {{ documents|length }} tài liệu</strong> trong thư viện của bạn.
+        </div>
+    </div>
+
+    <div id="library-chat-loading" class="hidden px-4 pb-2">
+        <div class="flex items-center gap-2 text-slate-400 text-[10px]">
+            <i class="fa-solid fa-circle-notch fa-spin"></i> Trợ lý đang đọc toàn bộ thư viện...
+        </div>
+    </div>
+
+    <div class="p-4 border-t border-slate-200 bg-white">
+        <div class="relative">
+            <input id="library-chat-input" type="text" placeholder="Hỏi bất kỳ điều gì về kho tài liệu..."
+                class="w-full pl-4 pr-10 py-2.5 bg-slate-100 border-none rounded-full text-sm focus:ring-2 focus:ring-brand-500 transition">
+            <button onclick="sendLibraryChat()"
+                class="absolute right-2 top-1.5 w-7 h-7 bg-brand-600 text-white rounded-full flex items-center justify-center hover:bg-brand-700 transition">
+                <i class="fa-solid fa-paper-plane text-[10px]"></i>
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 1. Handle File Upload
+    document.getElementById('file-upload').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const btn = e.target.parentElement;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Uploading...`;
+        btn.classList.add('opacity-75', 'pointer-events-none');
+
+        try {
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (res.ok) {
+                window.location.reload();
+            } else {
+                alert('Upload failed: ' + data.message);
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Có lỗi xảy ra khi upload.');
+        } finally {
+            btn.innerHTML = originalText;
+            btn.classList.remove('opacity-75', 'pointer-events-none');
+        }
+    });
+
+    // 2. Handle Checkbox Logic & Comparison
+    const checkboxes = document.querySelectorAll('.doc-checkbox');
+    const btnCompare = document.getElementById('btn-compare');
+    const countSpan = document.getElementById('count-selected');
+
+    function updateCompareButton() {
+        const selected = Array.from(checkboxes).filter(cb => cb.checked);
+        countSpan.innerText = selected.length;
+        if (selected.length >= 1) {
+            btnCompare.classList.remove('hidden');
+            btnCompare.classList.add('flex');
+        } else {
+            btnCompare.classList.add('hidden');
+            btnCompare.classList.remove('flex');
+        }
+    }
+
+    checkboxes.forEach(cb => cb.addEventListener('change', updateCompareButton));
+
+    document.getElementById('select-all').addEventListener('change', (e) => {
+        checkboxes.forEach(cb => cb.checked = e.target.checked);
+        updateCompareButton();
+    });
+
+    window.compareSelected = function () {
+        const selectedIds = Array.from(checkboxes)
+            .filter(cb => cb.checked)
+            .map(cb => cb.value);
+
+        if (selectedIds.length === 0) return;
+
+        const query = selectedIds.join(',');
+        window.location.href = `/compare-view?ids=${query}`;
+    }
+
+    // 3. Handle Delete Document
+    window.deleteDoc = async function (docId) {
+        if (!confirm("Bạn có chắc chắn muốn xóa tài liệu này và toàn bộ dữ liệu (ghi chú, chat) liên quan?")) return;
+
+        try {
+            const res = await fetch(`/api/delete-doc/${docId}`, { method: 'DELETE' });
+
+            // Check if response is actually JSON
+            const contentType = res.headers.get("content-type");
+            if (contentType && contentType.indexOf("application/json") !== -1) {
+                const data = await res.json();
+                if (res.ok) {
+                    window.location.reload();
+                } else {
+                    alert("Xóa thất bại: " + (data.message || "Lỗi server."));
+                }
+            } else {
+                // Not JSON - probably a 404 or 500 HTML page
+                const text = await res.text();
+                console.error("Non-JSON Error Response:", text);
+                alert("Xóa thất bại: Lỗi hệ thống (HTTP " + res.status + "). Vui lòng kiểm tra console.");
+            }
+        } catch (err) {
+            console.error("Fetch Error:", err);
+            alert("Lỗi kết nối: " + err.message);
+        }
+    }
+
+    // 4. Handle Collections (Local persistence for demo)
+    const collectionList = document.getElementById('collection-list');
+    function loadCollections() {
+        const saved = JSON.parse(localStorage.getItem('ra_collections') || '["AI Research", "Python Performance"]');
+        // Keep "Tất cả" as first
+        const items = saved.map(name => `
+            <li class="group flex items-center justify-between px-3 py-2 text-slate-600 hover:bg-slate-50 rounded-md font-medium text-sm transition">
+                <a href="#" class="flex items-center gap-3 overflow-hidden flex-1" onclick="window.filterByCollection('${name}')">
+                    <i class="fa-regular fa-folder"></i> <span class="truncate">${name}</span>
+                </a>
+                <button onclick="window.deleteCollection('${name}')" class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition px-1">
+                    <i class="fa-solid fa-xmark text-[10px]"></i>
+                </button>
+            </li>
+        `).join('');
+        collectionList.innerHTML = `
+            <li>
+                <a href="/" class="flex items-center gap-3 px-3 py-2 bg-brand-50 text-brand-600 rounded-md font-medium text-sm">
+                    <i class="fa-solid fa-folder-open"></i> Tất cả tài liệu
+                </a>
+            </li>
+            ${items}
+        `;
+    }
+
+    window.createCollection = function () {
+        const name = prompt("Nhập tên bộ sưu tập mới:", "");
+        if (!name) return;
+        const saved = JSON.parse(localStorage.getItem('ra_collections') || '["AI Research", "Python Performance"]');
+        if (saved.includes(name)) {
+            alert("Bộ sưu tập này đã tồn tại.");
+            return;
+        }
+        saved.push(name);
+        localStorage.setItem('ra_collections', JSON.stringify(saved));
+        loadCollections();
+    }
+
+    window.deleteCollection = function (name) {
+        if (!confirm(`Bạn muốn xóa bộ sưu tập "${name}"?`)) return;
+        let saved = JSON.parse(localStorage.getItem('ra_collections') || '["AI Research", "Python Performance"]');
+        saved = saved.filter(n => n !== name);
+        localStorage.setItem('ra_collections', JSON.stringify(saved));
+        loadCollections();
+    }
+
+    window.filterByCollection = function (name) {
+        const rows = document.querySelectorAll('#doc-list tr');
+        let count = 0;
+        rows.forEach(row => {
+            if (row.innerText.toLowerCase().includes(name.toLowerCase())) {
+                row.style.display = '';
+                count++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        console.log(`Đã lọc ${count} tài liệu trong "${name}"`);
+    }
+
+    loadCollections();
+
+    // 5. Library Assistant Logic
+    const libChatDrawer = document.getElementById('library-chat-drawer');
+    const libChatHistory = document.getElementById('library-chat-history');
+    const libChatInput = document.getElementById('library-chat-input');
+    const libChatLoading = document.getElementById('library-chat-loading');
+    let libHistory = [];
+
+    window.toggleLibraryChat = function (show) {
+        if (show) libChatDrawer.classList.remove('translate-x-full');
+        else libChatDrawer.classList.add('translate-x-full');
+    }
+
+    window.addLibMessage = function (role, content) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} mb-4`;
+
+        const inner = document.createElement('div');
+        inner.className = `max-w-[85%] p-3 rounded-2xl text-xs shadow-sm ${role === 'user'
+            ? 'bg-brand-600 text-white rounded-tr-none'
+            : 'bg-white text-slate-700 rounded-tl-none border border-slate-100 prose'}`;
+
+        if (role === 'assistant') {
+            inner.innerHTML = marked.parse(content);
+        } else {
+            inner.innerHTML = content.replace(/\n/g, '<br>');
+        }
+
+        msgDiv.appendChild(inner);
+        libChatHistory.appendChild(msgDiv);
+        libChatHistory.scrollTop = libChatHistory.scrollHeight;
+    }
+
+    window.sendLibraryChat = async function () {
+        const text = libChatInput.value.trim();
+        if (!text) return;
+        libChatInput.value = '';
+
+        addLibMessage('user', text);
+        libChatLoading.classList.remove('hidden');
+
+        try {
+            const res = await postJSON('/api/library-chat', {
+                text: text,
+                history: libHistory
+            });
+            libChatLoading.classList.add('hidden');
+            if (res.reply) {
+                addLibMessage('assistant', res.reply);
+                libHistory.push({ role: 'user', content: text });
+                libHistory.push({ role: 'assistant', content: res.reply });
+            }
+        } catch (err) {
+            libChatLoading.classList.add('hidden');
+            addLibMessage('assistant', 'Lỗi: ' + err.message);
+        }
+    }
+
+    libChatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendLibraryChat(); });
+
+    // 6. Enhanced Content Search (searches within highlights, not just titles)
+    const searchInput = document.getElementById('semantic-search-input');
+    const searchLoading = document.getElementById('search-loading');
+    const docRows = document.querySelectorAll('#doc-list tr');
+
+    let searchTimeout;
+    searchInput.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        const query = e.target.value.trim();
+
+        // Remove existing search summary
+        const existingSummary = document.getElementById('search-summary');
+        if (existingSummary) existingSummary.remove();
+
+        if (!query) {
+            // Show all documents
+            docRows.forEach(row => {
+                row.style.display = '';
+                row.title = '';
+                row.classList.remove('bg-yellow-50');
+            });
+            return;
+        }
+
+        searchTimeout = setTimeout(async () => {
+            searchLoading.classList.remove('hidden');
+            try {
+                // Call new content search API
+                const res = await fetch(`/api/search-content?query=${encodeURIComponent(query)}&mode=hybrid`);
+                const data = await res.json();
+
+                if (!data.results) {
+                    throw new Error("Invalid response from search API");
+                }
+
+                const relevantIds = data.results.map(r => r.doc_id);
+
+                // Show/hide document rows
+                docRows.forEach(row => {
+                    const cb = row.querySelector('.doc-checkbox');
+                    if (cb) {
+                        const docResult = data.results.find(r => r.doc_id === cb.value);
+
+                        if (docResult) {
+                            row.style.display = '';
+
+                            // Build tooltip showing matches
+                            const matchInfo = `${docResult.total_matches} kết quả khớp trong nội dung:\n${docResult.matches.slice(0, 3).map((m, idx) =>
+                                `${idx + 1}. [${m.tag}] ${m.snippet.substring(0, 100)}...`
+                            ).join('\n')}`;
+
+                            row.title = matchInfo;
+
+                            // Highlight matched row
+                            row.classList.add('bg-yellow-50');
+                        } else {
+                            row.style.display = 'none';
+                            row.classList.remove('bg-yellow-50');
+                            row.title = '';
+                        }
+                    }
+                });
+
+                // Show search results summary
+                if (data.total_documents > 0) {
+                    const summary = document.createElement('div');
+                    summary.id = 'search-summary';
+                    summary.className = 'mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between';
+                    summary.innerHTML = `
+                        <div class="flex items-center gap-2 text-sm text-blue-700">
+                            <i class="fa-solid fa-search"></i>
+                            <span>
+                                Tìm thấy <strong>${data.total_matches}</strong> đoạn nội dung khớp
+                                trong <strong>${data.total_documents}</strong> tài liệu
+                            </span>
+                        </div>
+                        <button onclick="document.getElementById('semantic-search-input').value = ''; document.getElementById('semantic-search-input').dispatchEvent(new Event('input'));" 
+                            class="text-blue-500 hover:text-blue-700 text-xs">
+                            <i class="fa-solid fa-xmark mr-1"></i> Xóa
+                        </button>
+                    `;
+
+                    // Insert before table
+                    const tableContainer = document.querySelector('.bg-white.rounded-xl');
+                    tableContainer.parentElement.insertBefore(summary, tableContainer);
+                } else {
+                    // No results found
+                    const summary = document.createElement('div');
+                    summary.id = 'search-summary';
+                    summary.className = 'mb-4 p-3 bg-slate-100 border border-slate-300 rounded-lg text-center text-slate-600 text-sm';
+                    summary.innerHTML = `
+                        <i class="fa-solid fa-magnifying-glass mr-2"></i>
+                        Không tìm thấy kết quả nào cho "<strong>${query}</strong>"
+                    `;
+
+                    const tableContainer = document.querySelector('.bg-white.rounded-xl');
+                    tableContainer.parentElement.insertBefore(summary, tableContainer);
+                }
+
+            } catch (err) {
+                console.error("Content search failed:", err);
+                alert('Lỗi tìm kiếm: ' + err.message);
+            } finally {
+                searchLoading.classList.add('hidden');
+            }
+        }, 500);  // 500ms debounce
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,5 @@
+{
+  "name": "Research Assistant",
+  "description": "A PDF analysis tool using Python/FastAPI and Firebase to highlight, tag, and compare research papers.",
+  "requestFramePermissions": []
+}
